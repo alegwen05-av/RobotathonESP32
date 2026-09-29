@@ -29,6 +29,23 @@ void dumpGamepad(ControllerPtr ctl) {
     );
 }
 
+//NEW STUFF DOWN BELOW
+
+void foo(ControllerPtr myController) {
+    while(1) {
+        BP32.update();
+        if(myController->a()) {
+            Console.printf("hi");
+            return;
+        }
+        else {
+            Console.printf("Press button A!\n"); // Replace with whatever you want
+        }
+    }
+}
+
+// NEW STUFF UP HERE
+
 void setup() {
     BP32.setup(&onConnectedController, &onDisconnectedController);
     BP32.forgetBluetoothKeys(); 
@@ -47,6 +64,7 @@ void loop() {
             Your code goes here!
             ====================
             */
+            foo(myController);
 
             dumpGamepad(myController); // Prints the gamepad state, delete or comment if don't need
         }
