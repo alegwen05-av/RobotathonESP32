@@ -6,5 +6,5 @@ set(srcs
 set(requires "bluepad32" "bluepad32_arduino" "arduino" "btstack" "callbacks")
 
 idf_component_register(SRCS "motors.cpp" "lineSensor.cpp" "colorSensor.cpp" "${srcs}"
-                    INCLUDE_DIRS "."
+                    INCLUDE_DIRS "." "../include"
                     REQUIRES "${requires}")
