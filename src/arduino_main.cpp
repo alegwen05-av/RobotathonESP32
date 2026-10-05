@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2021 Ricardo Quesada
+// http://retro.moe/unijoysticle2
+
 #include "sdkconfig.h"
 #include <Arduino.h>
 #include <Bluepad32.h>
@@ -5,57 +9,106 @@
 #include "controller_callbacks.h"
 #include "motors.hpp"
 
-// DRV8833 pins for one motor
+// Motor setup using uPesy ESP32 pins
 const int IN1 = 16;
 const int IN2 = 17;
-const int DRV_SLEEP = 27;
-const int DRV_FAULT = 32;
+const int IN3 = 18;
+const int IN4 = 19;
+MotorController robotMotors(IN1, IN2, IN3, IN4); //makes an object of MotorController, functions found in motors.hpp
 
-MotorController robotMotors(IN1, IN2, 18, 19);
+extern ControllerPtr myControllers[BP32_MAX_GAMEPADS];
+
+void processGamepad(ControllerPtr ctl) {
+    uint8_t dpad = ctl->dpad();
+
+    if (dpad & DPAD_UP) {
+        Serial.println("Moving Forward!");
+        robotMotors.forward(255);
+    } else if (dpad & DPAD_DOWN) {
+        Serial.println("Moving Backward!");
+        robotMotors.backward(255);
+    } else if (dpad & DPAD_LEFT) {
+        Serial.println("Turning Left!");
+        robotMotors.turnLeft(255);
+    } else if (dpad & DPAD_RIGHT) {
+        Serial.println("Turning Right!");
+        robotMotors.turnRight(255);
+    } else {
+        robotMotors.stop();
+    }
+}
 
 void setup() {
     Serial.begin(115200);
 
-    pinMode(DRV_SLEEP, OUTPUT);
-    digitalWrite(DRV_SLEEP, HIGH);
+    // Initialize Bluepad32 Bluetooth Stack
+    BP32.setup(&onConnectedController, &onDisconnectedController);
+    BP32.forgetBluetoothKeys(); 
+    esp_log_level_set("gpio", ESP_LOG_ERROR); // Suppress log spam
+    
+    // Allow any controller to connect
+    uni_bt_allowlist_set_enabled(false);
 
-    pinMode(DRV_FAULT, INPUT);
-
+    // Initialize motor pins
     robotMotors.init();
 
-    Serial.println("DRV8833 test start");
-    Serial.println("SLEEP enabled");
+    Serial.println("Robot ready! Press DPAD UP to drive forward.");
 }
 
 void loop() {
-    static unsigned long lastChange = 0;
-    static int state = 0;
+    vTaskDelay(1); // Feed the task watchdog timer
+    BP32.update(); // Poll Bluepad32 events
 
-    delay(10);
+    bool controllerConnected = false;
 
-    if (millis() - lastChange >= 3000) {
-        lastChange = millis();
-        state++;
+    for (auto myController : myControllers) {
+        if (myController) {
+            Serial.print("Controller found: ");
+            Serial.println(myController->isConnected() ? "CONNECTED" : "NOT CONNECTED");
 
-        int fault = digitalRead(DRV_FAULT);
-        Serial.print("Fault pin: ");
-        Serial.println(fault ? "HIGH" : "LOW");
-
-        switch (state % 3) {
-            case 0:
-                Serial.println("FORWARD");
-                robotMotors.forward(200);
-                break;
-
-            case 1:
-                Serial.println("BACKWARD");
-                robotMotors.backward(200);
-                break;
-
-            default:
-                Serial.println("STOP");
-                robotMotors.stop();
-                break;
+            if (myController->isConnected()) {
+                Serial.print("Has data: ");
+                Serial.println(myController->hasData() ? "YES" : "NO");
+            }
+        }
+        if (myController && myController->isConnected() && myController->hasData()) {
+            controllerConnected = true;
+            processGamepad(myController);
         }
     }
+
+    // Safety fallback: if no controller is connected, ensure motors are stopped
+    if (!controllerConnected) {
+        robotMotors.stop();
+    }
+
+    /*
+    // TEMPORARY MOTOR TEST: uncomment this block to test the drivetrain without a controller.
+    // This will run forward for 5 seconds, then backward for 5 seconds, then stop.
+    static bool motorTestStarted = false;
+    static uint32_t motorTestStartTime = 0;
+    static bool motorTestForward = true;
+
+    if (!motorTestStarted) {
+        motorTestStarted = true;
+        motorTestStartTime = millis();
+        Serial.println("Motor test start: forward");
+        robotMotors.forward(200);
+    }
+
+    uint32_t elapsed = millis() - motorTestStartTime;
+
+    if (motorTestForward && elapsed >= 5000) {
+        Serial.println("Motor test: backward");
+        robotMotors.backward(200);
+        motorTestForward = false;
+        motorTestStartTime = millis();
+    } else if (!motorTestForward && elapsed >= 5000) {
+        Serial.println("Motor test: stop");
+        robotMotors.stop();
+        motorTestStarted = false;
+        motorTestForward = true;
+        motorTestStartTime = 0;
+    }
+    */
 }
