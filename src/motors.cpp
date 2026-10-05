@@ -16,8 +16,11 @@ void MotorController::init() {
     pinMode(_in4, OUTPUT);
 }
 
-// Single Motor Driver: handles PWM (analogWrite) vs direction (digitalWrite)
-void MotorController::setMotor(int pinA, int pinB, int speed) {
+// THIS IS THE MAIN MOTOR CONTROL LOGIC
+// this works by taking a speed value (-255 to 255) and setting the motor direction (+/-)and PWM (w/ ADC) accordingly
+// all we have to do is make functions that will call this function specifically for different directions/speeds
+void MotorController::setMotor(int pinA, int pinB, int speed) { //speed is any integer -255 to 255
+                                                                // positive for forward, negative for reverse, 0 to stop
     if (speed > 0) {
         analogWrite(pinA, speed);   // Speed via PWM
         digitalWrite(pinB, LOW);    // Ground for direction
