@@ -14,6 +14,7 @@ void MotorController::init() {
     pinMode(_in2, OUTPUT);
     pinMode(_in3, OUTPUT);
     pinMode(_in4, OUTPUT);
+    stop();
 }
 
 // THIS IS THE MAIN MOTOR CONTROL LOGIC
@@ -23,15 +24,29 @@ void MotorController::setMotor(int pinA, int pinB, int speed) { //speed is any i
                                                                 // positive for forward, negative for reverse, 0 to stop
     if (speed > 0) {
         analogWrite(pinA, speed);   // Speed via PWM
+        analogWrite(pinB, 0);       // Keep the inactive input low through PWM
+    } else if (speed < 0) {
+        analogWrite(pinA, 0);
+        analogWrite(pinB, -speed);  // Convert negative to positive for PWM
+    } else {
+        analogWrite(pinA, 0);       // Stop/coast with both inputs low
+        analogWrite(pinB, 0);
+    }
+}
+
+/*void MotorController::setMotor(int pinA, int pinB, int speed) {
+    if (speed > 0) {
+        ledcWrite(pinA, speed);   // ESP32 PWM speed
         digitalWrite(pinB, LOW);    // Ground for direction
     } else if (speed < 0) {
         digitalWrite(pinA, LOW);
-        analogWrite(pinB, -speed);  // Convert negative to positive for PWM
+        ledcWrite(pinB, -speed);  // ESP32 PWM speed (inverted)
     } else {
         digitalWrite(pinA, LOW);    // Stop/Coast
         digitalWrite(pinB, LOW);
     }
 }
+ */
 
 // Basic Directional Controls
 void MotorController::forward(int speed) {
