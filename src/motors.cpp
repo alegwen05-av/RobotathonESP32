@@ -34,20 +34,6 @@ void MotorController::setMotor(int pinA, int pinB, int speed) { //speed is any i
     }
 }
 
-/*void MotorController::setMotor(int pinA, int pinB, int speed) {
-    if (speed > 0) {
-        ledcWrite(pinA, speed);   // ESP32 PWM speed
-        digitalWrite(pinB, LOW);    // Ground for direction
-    } else if (speed < 0) {
-        digitalWrite(pinA, LOW);
-        ledcWrite(pinB, -speed);  // ESP32 PWM speed (inverted)
-    } else {
-        digitalWrite(pinA, LOW);    // Stop/Coast
-        digitalWrite(pinB, LOW);
-    }
-}
- */
-
 // Basic Directional Controls
 void MotorController::forward(int speed) {
     setMotor(_in1, _in2, speed);

@@ -56,59 +56,23 @@ void setup() {
 }
 
 void loop() {
-    vTaskDelay(1); // Feed the task watchdog timer
-    BP32.update(); // Poll Bluepad32 events
+    vTaskDelay(1);
+    BP32.update();
 
     bool controllerConnected = false;
 
     for (auto myController : myControllers) {
-        if (myController) {
-            Serial.print("Controller found: ");
-            Serial.println(myController->isConnected() ? "CONNECTED" : "NOT CONNECTED");
-
-            if (myController->isConnected()) {
-                Serial.print("Has data: ");
-                Serial.println(myController->hasData() ? "YES" : "NO");
-            }
-        }
-        if (myController && myController->isConnected() && myController->hasData()) {
+        if (myController && myController->isConnected()) {
             controllerConnected = true;
-            processGamepad(myController);
+
+            if (myController->hasData()) {
+                processGamepad(myController);
+            }
         }
     }
 
-    // Safety fallback: if no controller is connected, ensure motors are stopped
+    // Stop when the controller disconnects.
     if (!controllerConnected) {
         robotMotors.stop();
     }
-
-    /*
-    // TEMPORARY MOTOR TEST: uncomment this block to test the drivetrain without a controller.
-    // This will run forward for 5 seconds, then backward for 5 seconds, then stop.
-    static bool motorTestStarted = false;
-    static uint32_t motorTestStartTime = 0;
-    static bool motorTestForward = true;
-
-    if (!motorTestStarted) {
-        motorTestStarted = true;
-        motorTestStartTime = millis();
-        Serial.println("Motor test start: forward");
-        robotMotors.forward(200);
-    }
-
-    uint32_t elapsed = millis() - motorTestStartTime;
-
-    if (motorTestForward && elapsed >= 5000) {
-        Serial.println("Motor test: backward");
-        robotMotors.backward(200);
-        motorTestForward = false;
-        motorTestStartTime = millis();
-    } else if (!motorTestForward && elapsed >= 5000) {
-        Serial.println("Motor test: stop");
-        robotMotors.stop();
-        motorTestStarted = false;
-        motorTestForward = true;
-        motorTestStartTime = 0;
-    }
-    */
 }
