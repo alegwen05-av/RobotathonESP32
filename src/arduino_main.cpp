@@ -19,23 +19,25 @@ MotorController robotMotors(IN1, IN2, IN3, IN4); //makes an object of MotorContr
 extern ControllerPtr myControllers[BP32_MAX_GAMEPADS];
 
 void processGamepad(ControllerPtr ctl) {
-    uint8_t dpad = ctl->dpad();
+    int x = ctl->axisX();
+    int y = ctl->axisY();
+    constexpr int deadzone = 0;
 
-    if (dpad & DPAD_UP) {
-        Serial.println("Moving Forward!");
-        robotMotors.forward(255);
-    } else if (dpad & DPAD_DOWN) {
-        Serial.println("Moving Backward!");
-        robotMotors.backward(255);
-    } else if (dpad & DPAD_LEFT) {
-        Serial.println("Turning Left!");
-        robotMotors.turnLeft(255);
-    } else if (dpad & DPAD_RIGHT) {
-        Serial.println("Turning Right!");
-        robotMotors.turnRight(255);
-    } else {
-        robotMotors.stop();
+    if (x > -deadzone && x < deadzone) {
+        x = 0;
     }
+    if (y > -deadzone && y < deadzone) {
+        y = 0;
+    }
+    if(x > -125 && x < 125) //maual code, meant to make the robot drive slower when the stick is near the center, and faster when the stick is pushed further out
+    {
+        robotMotors.driveJoystick(x / 2, -y / 2);
+    }
+    else if(x < -125 || x > 125)
+    {
+        robotMotors.driveJoystick(x, -y);
+    }
+
 }
 
 void setup() {
@@ -52,7 +54,7 @@ void setup() {
     // Initialize motor pins
     robotMotors.init();
 
-    Serial.println("Robot ready! Press DPAD UP to drive forward.");
+    Serial.println("Robot ready! Use the left stick to drive.");
 }
 
 void loop() {
