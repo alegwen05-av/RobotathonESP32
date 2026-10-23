@@ -7,6 +7,7 @@
 #include <Bluepad32.h>
 #include <uni.h>
 #include "controller_callbacks.h"
+#include "colorSensor.hpp"
 #include "motors.hpp"
 
 // Motor setup using uPesy ESP32 pins
@@ -15,8 +16,24 @@ const int IN2 = 17;
 const int IN3 = 18;
 const int IN4 = 19;
 MotorController robotMotors(IN1, IN2, IN3, IN4); //makes an object of MotorController, functions found in motors.hpp
+ColorSensor colorSensor;
+bool colorSensorReady = false;
 
 extern ControllerPtr myControllers[BP32_MAX_GAMEPADS];
+
+void testColorSensor() {
+    static unsigned long lastReadingMs = 0;
+    if (!colorSensorReady || millis() - lastReadingMs < 500) {
+        return;
+    }
+
+    ColorReading reading{};
+    if (colorSensor.read(reading)) {
+        lastReadingMs = millis();
+        Serial.printf("Color sensor: R=%d G=%d B=%d Clear=%d\n",
+                      reading.red, reading.green, reading.blue, reading.clear);
+    }
+}
 
 void processGamepad(ControllerPtr ctl) {
     int x = ctl->axisX();
@@ -43,6 +60,11 @@ void processGamepad(ControllerPtr ctl) {
 void setup() {
     Serial.begin(115200);
 
+    colorSensorReady = colorSensor.begin();
+    if (!colorSensorReady) {
+        Serial.println("Color sensor initialization failed.");
+    }
+
     // Initialize Bluepad32 Bluetooth Stack
     BP32.setup(&onConnectedController, &onDisconnectedController);
     BP32.forgetBluetoothKeys(); 
@@ -60,6 +82,7 @@ void setup() {
 void loop() {
     vTaskDelay(1);
     BP32.update();
+    testColorSensor();
 
     bool controllerConnected = false;
 
