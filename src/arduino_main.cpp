@@ -15,6 +15,8 @@ const int IN1 = 16;
 const int IN2 = 17;
 const int IN3 = 18;
 const int IN4 = 19;
+const int LINE_SENSOR_PIN_1 = 32;
+const int LINE_SENSOR_PIN_2 = 33;
 MotorController robotMotors(IN1, IN2, IN3, IN4); //makes an object of MotorController, functions found in motors.hpp
 ColorSensor colorSensor;
 bool colorSensorReady = false;
@@ -30,9 +32,20 @@ void testColorSensor() {
     ColorReading reading{};
     if (colorSensor.read(reading)) {
         lastReadingMs = millis();
-        Serial.printf("Color sensor: R=%d G=%d B=%d Clear=%d\n",
-                      reading.red, reading.green, reading.blue, reading.clear);
     }
+}
+
+void testLineSensors() {
+    static unsigned long lastReadingMs = 0;
+    if (millis() - lastReadingMs < 250) {
+        return;
+    }
+
+    lastReadingMs = millis();
+    int sensor1Reading = analogRead(LINE_SENSOR_PIN_1);
+    int sensor2Reading = analogRead(LINE_SENSOR_PIN_2);
+    Serial.printf("Line sensors: GPIO32=%d GPIO33=%d\n",
+                  sensor1Reading, sensor2Reading);
 }
 
 void processGamepad(ControllerPtr ctl) {
@@ -61,9 +74,6 @@ void setup() {
     Serial.begin(115200);
 
     colorSensorReady = colorSensor.begin();
-    if (!colorSensorReady) {
-        Serial.println("Color sensor initialization failed.");
-    }
 
     // Initialize Bluepad32 Bluetooth Stack
     BP32.setup(&onConnectedController, &onDisconnectedController);
@@ -76,6 +86,9 @@ void setup() {
     // Initialize motor pins
     robotMotors.init();
 
+    pinMode(LINE_SENSOR_PIN_1, INPUT);
+    pinMode(LINE_SENSOR_PIN_2, INPUT);
+
     Serial.println("Robot ready! Use the left stick to drive.");
 }
 
@@ -83,6 +96,7 @@ void loop() {
     vTaskDelay(1);
     BP32.update();
     testColorSensor();
+    testLineSensors();
 
     bool controllerConnected = false;
 
