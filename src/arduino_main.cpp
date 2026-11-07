@@ -9,6 +9,7 @@
 #include "controller_callbacks.h"
 #include "colorSensor.hpp"
 #include "motors.hpp"
+#include "servo.hpp"
 
 // Motor setup using uPesy ESP32 pins
 const int IN1 = 16;
@@ -17,9 +18,13 @@ const int IN3 = 18;
 const int IN4 = 19;
 const int LINE_SENSOR_PIN_1 = 32;
 const int LINE_SENSOR_PIN_2 = 33;
+const int SERVO_PIN = 23;
 MotorController robotMotors(IN1, IN2, IN3, IN4); //makes an object of MotorController, functions found in motors.hpp
 ColorSensor colorSensor;
+ServoController armServo;
 bool colorSensorReady = false;
+bool servoReady = false;
+bool servoButtonWasPressed[BP32_MAX_GAMEPADS] = {};
 
 extern ControllerPtr myControllers[BP32_MAX_GAMEPADS];
 
@@ -34,7 +39,7 @@ void testColorSensor() {
         lastReadingMs = millis();
     }
 }
-
+/*
 void testLineSensors() {
     static unsigned long lastReadingMs = 0;
     if (millis() - lastReadingMs < 250) {
@@ -46,7 +51,7 @@ void testLineSensors() {
     int sensor2Reading = analogRead(LINE_SENSOR_PIN_2);
     Serial.printf("Line sensors: GPIO32=%d GPIO33=%d\n",
                   sensor1Reading, sensor2Reading);
-}
+}*/
 
 void processGamepad(ControllerPtr ctl) {
     int x = ctl->axisX();
@@ -86,27 +91,42 @@ void setup() {
     // Initialize motor pins
     robotMotors.init();
 
+    servoReady = armServo.begin(SERVO_PIN);
+    if (!servoReady) {
+        Serial.println("Failed to initialize servo.");
+    }
+
     pinMode(LINE_SENSOR_PIN_1, INPUT);
     pinMode(LINE_SENSOR_PIN_2, INPUT);
 
-    Serial.println("Robot ready! Use the left stick to drive.");
+    Serial.println("Robot ready! Use the left stick to drive and the A button to pulse the servo.");
 }
 
 void loop() {
     vTaskDelay(1);
     BP32.update();
+    armServo.update();
     testColorSensor();
-    testLineSensors();
+    //testLineSensors();
 
     bool controllerConnected = false;
 
-    for (auto myController : myControllers) {
+    for (int i = 0; i < BP32_MAX_GAMEPADS; ++i) {
+        ControllerPtr myController = myControllers[i];
         if (myController && myController->isConnected()) {
             controllerConnected = true;
+
+            bool servoButtonPressed = myController->a();
+            if (servoReady && servoButtonPressed && !servoButtonWasPressed[i]) {
+                armServo.toggle();
+            }
+            servoButtonWasPressed[i] = servoButtonPressed;
 
             if (myController->hasData()) {
                 processGamepad(myController);
             }
+        } else {
+            servoButtonWasPressed[i] = false;
         }
     }
 
