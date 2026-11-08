@@ -7,6 +7,7 @@
 #include <Bluepad32.h>
 #include <uni.h>
 #include "controller_callbacks.h"
+#include "autonomous.hpp"
 #include "colorSensor.hpp"
 #include "motors.hpp"
 #include "servo.hpp"
@@ -21,24 +22,21 @@ const int LINE_SENSOR_PIN_2 = 33;
 const int SERVO_PIN = 23;
 MotorController robotMotors(IN1, IN2, IN3, IN4); //makes an object of MotorController, functions found in motors.hpp
 ColorSensor colorSensor;
+AutonomousController autonomousController(colorSensor, robotMotors);
 ServoController armServo;
 bool colorSensorReady = false;
 bool servoReady = false;
 bool servoButtonWasPressed[BP32_MAX_GAMEPADS] = {};
+bool modeButtonWasPressed[BP32_MAX_GAMEPADS] = {};
+
+enum class DriveMode {
+    Autonomous,
+    Manual
+};
+
+DriveMode driveMode = DriveMode::Autonomous;
 
 extern ControllerPtr myControllers[BP32_MAX_GAMEPADS];
-
-void testColorSensor() {
-    static unsigned long lastReadingMs = 0;
-    if (!colorSensorReady || millis() - lastReadingMs < 500) {
-        return;
-    }
-
-    ColorReading reading{};
-    if (colorSensor.read(reading)) {
-        lastReadingMs = millis();
-    }
-}
 /*
 void testLineSensors() {
     static unsigned long lastReadingMs = 0;
@@ -79,6 +77,9 @@ void setup() {
     Serial.begin(115200);
 
     colorSensorReady = colorSensor.begin();
+    if (!colorSensorReady) {
+        Serial.println("Failed to initialize color sensor; autonomous mode is unavailable.");
+    }
 
     // Initialize Bluepad32 Bluetooth Stack
     BP32.setup(&onConnectedController, &onDisconnectedController);
@@ -99,14 +100,14 @@ void setup() {
     pinMode(LINE_SENSOR_PIN_1, INPUT);
     pinMode(LINE_SENSOR_PIN_2, INPUT);
 
-    Serial.println("Robot ready! Use the left stick to drive and the A button to pulse the servo.");
+    autonomousController.begin();
+    Serial.println("Robot ready in autonomous mode. Press Start to switch drive mode.");
 }
 
 void loop() {
     vTaskDelay(1);
     BP32.update();
     armServo.update();
-    testColorSensor();
     //testLineSensors();
 
     bool controllerConnected = false;
@@ -122,16 +123,36 @@ void loop() {
             }
             servoButtonWasPressed[i] = servoButtonPressed;
 
-            if (myController->hasData()) {
+            bool modeButtonPressed = myController->b();
+            if (modeButtonPressed && !modeButtonWasPressed[i]) { //the array stores the previous value of the button press
+                // so we only toggle the drive mode when the button is newly pressed, this code loop will all run super fast
+                // so it's getting the new data fast enough that we have to double check that it's actually a new press by analyzing previous
+                driveMode = driveMode == DriveMode::Autonomous
+                    ? DriveMode::Manual
+                    : DriveMode::Autonomous;
+                robotMotors.stop();
+                Serial.println(driveMode == DriveMode::Autonomous
+                    ? "Autonomous mode"
+                    : "Manual mode");
+            }
+            modeButtonWasPressed[i] = modeButtonPressed;
+
+            if (driveMode == DriveMode::Manual && myController->hasData()) {
                 processGamepad(myController);
             }
         } else {
             servoButtonWasPressed[i] = false;
+            modeButtonWasPressed[i] = false;
         }
     }
 
-    // Stop when the controller disconnects.
-    if (!controllerConnected) {
+    if (driveMode == DriveMode::Autonomous) {
+        if (colorSensorReady) {
+            autonomousController.update();
+        } else {
+            robotMotors.stop();
+        }
+    } else if (!controllerConnected) {
         robotMotors.stop();
     }
 }

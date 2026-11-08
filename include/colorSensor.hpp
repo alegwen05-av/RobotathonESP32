@@ -4,8 +4,8 @@
 enum class DetectedColor {
 	None,
 	Red,
-	Green,
-	Blue
+	Orange,
+	Indigo
 };
 
 struct ColorReading {
@@ -19,6 +19,7 @@ class ColorSensor {
   public:
 	bool begin();
 	bool read(ColorReading& reading);
+	DetectedColor classify(const ColorReading& reading) const;
 };
 
 #endif
