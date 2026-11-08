@@ -11,9 +11,9 @@ class ServoController {
 
   private:
     Servo servo_;
-    bool raised_ = false;
     bool moving_ = false;
-    unsigned long movementStartedMs_ = 0;
+    bool forwardNext_ = true;
+    unsigned long phaseStartedMs_ = 0;
 };
 
 #endif
