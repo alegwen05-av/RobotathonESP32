@@ -66,11 +66,11 @@ void processGamepad(ControllerPtr ctl) {
     }
     if(x > -125 && x < 125) //maual code, meant to make the robot drive slower when the stick is near the center, and faster when the stick is pushed further out
     {
-        robotMotors.driveJoystick(x / 2, -y / 2);
+        robotMotors.driveJoystick(x / 2, y / 2);
     }
     else if(x < -125 || x > 125)
     {
-        robotMotors.driveJoystick(x, -y);
+        robotMotors.driveJoystick(x, y);
     }
 
 }
