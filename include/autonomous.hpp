@@ -1,32 +1,60 @@
-#ifndef AUTONOMOUS_HPP
-#define AUTONOMOUS_HPP
+#pragma once
 
-#include <stdint.h>
+#include <Arduino.h>
 #include "colorSensor.hpp"
 
 class MotorController;
+class LineSensor;
 
 class AutonomousController {
-  public:
-    AutonomousController(ColorSensor& colorSensor, MotorController& motors);
-    void begin();
-    void update();
-
-  private:
-    enum class State {
-        LearningStartColor,
-        LeavingStartTile,
-        SeekingStartColor,
-        Stopped
+public:
+    enum class Challenge {
+        None,
+        Color,
+        Line
     };
+
+    AutonomousController(
+        ColorSensor& colorSensor,
+        MotorController& motors,
+        LineSensor& lineSensor
+    );
+
+    void begin();
+    void startColorChallenge();
+    void startLineChallenge();
+    void pause();
+    void update(bool colorSensorReady);
+
+    Challenge challenge() const {
+        return challenge_;
+    }
+
+private:
+    enum class ColorState {
+        CaptureStart,
+        LeaveStart,
+        FindStartAgain,
+        Finished
+    };
+
+    void updateColor();
+    void updateLine();
 
     ColorSensor& colorSensor_;
     MotorController& motors_;
-    State state_ = State::LearningStartColor;
-    DetectedColor startColor_ = DetectedColor::None;
-    DetectedColor candidateColor_ = DetectedColor::None;
-    uint8_t candidateReadCount_ = 0;
-    unsigned long lastReadingMs_ = 0;
-};
+    LineSensor& lineSensor_;
 
-#endif
+    Challenge challenge_ = Challenge::None;
+    ColorState colorState_ = ColorState::CaptureStart;
+
+    float startRed_ = 0.0f;
+    float startGreen_ = 0.0f;
+    float startBlue_ = 0.0f;
+    float startBrightness_ = 0.0f;
+
+    uint8_t confirmationCount_ = 0;
+
+    uint32_t lastColorMs_ = 0;
+    uint32_t lastMessageMs_ = 0;
+};
