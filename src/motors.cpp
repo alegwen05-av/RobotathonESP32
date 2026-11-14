@@ -36,13 +36,13 @@ void MotorController::setMotor(int pinA, int pinB, int speed) { //speed is any i
 
 // Basic Directional Controls
 void MotorController::forward(int speed) {
-    setMotor(_in1, _in2, speed);
-    setMotor(_in3, _in4, speed);
+    setMotor(_in1, _in2, -speed);
+    setMotor(_in3, _in4, -speed);
 }
 
 void MotorController::backward(int speed) {
-    setMotor(_in1, _in2, -speed);
-    setMotor(_in3, _in4, -speed);
+    setMotor(_in1, _in2, speed);
+    setMotor(_in3, _in4, speed);
 }
 
 void MotorController::turnLeft(int speed) {
@@ -62,8 +62,8 @@ void MotorController::stop() {
 
 // Joystick Control (Differential Steering)
 void MotorController::driveJoystick(int x, int y) {
-    int leftSpeed = constrain(y + x, -255, 255);
-    int rightSpeed = constrain(y - x, -255, 255);
+    int leftSpeed = constrain(x - y, -255, 255);
+    int rightSpeed = constrain(-x - y, -255, 255);
 
     setMotor(_in1, _in2, leftSpeed);
     setMotor(_in3, _in4, rightSpeed);

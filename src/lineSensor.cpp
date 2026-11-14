@@ -31,8 +31,10 @@ void LineSensor::begin() {
         pinMode(pin, INPUT);
     }
 
-    // Leave QTR-8A LEDON disconnected to keep emitters on.
-    startCalibration();
+    ready_ = false;
+    calibrating_ = false;
+    detected_ = false;
+    resetSteering();
 }
 
 void LineSensor::startCalibration() {
@@ -205,7 +207,8 @@ void LineSensor::update() {
 
 void LineSensor::print() {
     Serial.printf(
-        "ready=%d line=%d correction=%d | raw L/M/R:",
+        "LINE state=%s ready=%d line=%d correction=%d | raw L/M/R:",
+        calibrating_ ? "calibrating" : (ready_ ? "detecting" : "not-ready"),
         ready_,
         detected_,
         correction_
@@ -221,8 +224,12 @@ void LineSensor::print() {
         Serial.printf(" %u", white_[i]);
     }
 
-    Serial.printf(
-        " | detected L/M/R: %d %d %d\n",
+    Serial.print(" | range L/M/R:");
+    for (int i = 0; i < Count; ++i) {
+        Serial.printf(" %u-%u", low_[i], high_[i]);
+    }
+
+    Serial.printf(" | on-white L/M/R: %d %d %d\n",
         onWhite_[0],
         onWhite_[1],
         onWhite_[2]

@@ -9,11 +9,12 @@ void onConnectedController(ControllerPtr ctl) {
     bool foundEmptySlot = false;
     for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
         if (myControllers[i] == nullptr) {
-            Console.printf("CALLBACK: Controller is connected, index=%d\n", i);
+            Serial.printf("CALLBACK: Controller connected, index=%d\n", i);
             // Additionally, you can get certain gamepad properties like:
             // Model, VID, PID, BTAddr, flags, etc.
             ControllerProperties properties = ctl->getProperties();
-            Console.printf("Controller model: %s, VID=0x%04x, PID=0x%04x\n", ctl->getModelName(), properties.vendor_id,
+            const String modelName = ctl->getModelName();
+            Serial.printf("Controller model: %s, VID=0x%04x, PID=0x%04x\n", modelName.c_str(), properties.vendor_id,
                            properties.product_id);
             myControllers[i] = ctl;
             foundEmptySlot = true;
@@ -21,7 +22,7 @@ void onConnectedController(ControllerPtr ctl) {
         }
     }
     if (!foundEmptySlot) {
-        Console.println("CALLBACK: Controller connected, but could not found empty slot");
+        Serial.println("CALLBACK: Controller connected, but no empty slot was available.");
     }
 }
 
@@ -29,13 +30,13 @@ void onDisconnectedController(ControllerPtr ctl) {
     bool foundController = false;
     for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
         if (myControllers[i] == ctl) {
-            Console.printf("CALLBACK: Controller disconnected from index=%d\n", i);
+            Serial.printf("CALLBACK: Controller disconnected from index=%d\n", i);
             myControllers[i] = nullptr;
             foundController = true;
             break;
         }
     }
     if (!foundController) {
-        Console.println("CALLBACK: Controller disconnected, but not found in myControllers");
+        Serial.println("CALLBACK: Disconnected controller was not found in the controller list.");
     }
 }

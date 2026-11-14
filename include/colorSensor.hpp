@@ -5,6 +5,7 @@ enum class DetectedColor {
 	None,
 	Red,
 	Orange,
+	Green,
 	Indigo
 };
 

@@ -41,8 +41,11 @@ DetectedColor ColorSensor::classify(const ColorReading& reading) const {
 	if (hue < 15.0f || hue >= 345.0f) {
 		return DetectedColor::Red;
 	}
-	if (hue >= 15.0f && hue < 55.0f) {
+	if (hue >= 15.0f && hue < 65.0f) {
 		return DetectedColor::Orange;
+	}
+	if (hue >= 65.0f && hue < 170.0f) {
+		return DetectedColor::Green;
 	}
 	if (hue >= 235.0f && hue < 285.0f) {
 		return DetectedColor::Indigo;

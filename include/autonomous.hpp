@@ -52,9 +52,11 @@ private:
     float startGreen_ = 0.0f;
     float startBlue_ = 0.0f;
     float startBrightness_ = 0.0f;
+    DetectedColor startDetectedColor_ = DetectedColor::None;
 
     uint8_t confirmationCount_ = 0;
 
     uint32_t lastColorMs_ = 0;
+    uint32_t lastColorReportMs_ = 0;
     uint32_t lastMessageMs_ = 0;
 };

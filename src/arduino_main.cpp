@@ -30,33 +30,89 @@ bool servoReady = false;
 bool servoButtonWasPressed[BP32_MAX_GAMEPADS] = {};
 bool modeButtonWasPressed[BP32_MAX_GAMEPADS] = {};
 bool lineButtonWasPressed[BP32_MAX_GAMEPADS] = {};
+bool colorButtonWasPressed[BP32_MAX_GAMEPADS] = {};
 
 enum class DriveMode {
     Autonomous,
     Manual
 };
 
-DriveMode driveMode = DriveMode::Autonomous;
+DriveMode driveMode = DriveMode::Manual;
 
 extern ControllerPtr myControllers[BP32_MAX_GAMEPADS];
 
-void processGamepad(ControllerPtr controller) {
-    int x = controller->axisX();
-    int y = controller->axisY();
+namespace {
+constexpr uint32_t SENSOR_REPORT_INTERVAL_MS = 500;
+uint32_t lastLineReportMs = 0;
 
-    if (x > -125 && x < 125) {
-        robotMotors.driveJoystick(x / 2, y / 2);
+void handleSerialInput() {
+    while (Serial.available() > 0) {
+        const char command = static_cast<char>(Serial.read());
+        if (command == 'c' || command == 'C') {
+            driveMode = DriveMode::Autonomous;
+            robotMotors.stop();
+            autonomousController.startLineChallenge();
+            lastLineReportMs = 0;
+        }
+    }
+}
+}
+
+void processGamepad(ControllerPtr ctl) {
+    constexpr int FORWARD_SPEED = 180;
+    constexpr int TURN_START_SPEED = 100;
+    constexpr int TURN_MAX_SPEED = 200;
+    constexpr unsigned long TURN_RAMP_TIME_MS = 1500;
+
+    static int previousTurnDirection = 0;
+    static unsigned long turnStartedMs = 0;
+
+    const int dpad = ctl->dpad();
+
+    int forwardSpeed = 0;
+    if ((dpad & DPAD_UP) && !(dpad & DPAD_DOWN)) {
+        forwardSpeed = FORWARD_SPEED;
+    } else if ((dpad & DPAD_DOWN) && !(dpad & DPAD_UP)) {
+        forwardSpeed = -FORWARD_SPEED;
+    }
+
+    int turnDirection = 0;
+    if ((dpad & DPAD_LEFT) && !(dpad & DPAD_RIGHT)) {
+        turnDirection = -1;
+    } else if ((dpad & DPAD_RIGHT) && !(dpad & DPAD_LEFT)) {
+        turnDirection = 1;
+    }
+
+    int turnSpeed = 0;
+    if (turnDirection != 0) {
+        if (turnDirection != previousTurnDirection) {
+            turnStartedMs = millis();
+            previousTurnDirection = turnDirection;
+        }
+
+        unsigned long turnDuration = millis() - turnStartedMs;
+        if (turnDuration > TURN_RAMP_TIME_MS) {
+            turnDuration = TURN_RAMP_TIME_MS;
+        }
+
+        turnSpeed = TURN_START_SPEED +
+            (TURN_MAX_SPEED - TURN_START_SPEED) *
+            turnDuration / TURN_RAMP_TIME_MS;
     } else {
-        robotMotors.driveJoystick(x, y);
+        previousTurnDirection = 0;
+    }
+
+    const int x = turnDirection * turnSpeed;
+    if (forwardSpeed == 0 && x == 0) {
+        robotMotors.stop();
+    } else {
+        robotMotors.driveJoystick(x, forwardSpeed);
     }
 }
 
 void setup() {
     Serial.begin(115200);
     colorSensorReady = colorSensor.begin();
-    if (!colorSensorReady) {
-        Serial.println("Color sensor initialization failed.");
-    }
 
     BP32.setup(&onConnectedController, &onDisconnectedController);
     BP32.forgetBluetoothKeys();
@@ -65,6 +121,8 @@ void setup() {
 
     robotMotors.init();
     lineSensor.begin();
+    Serial.println("Serial diagnostics active at 115200 baud.");
+    Serial.println("MANUAL MODE. Press B for automatic color challenge; Y for line or X for color.");
 
     servoReady = armServo.begin(SERVO_PIN);
     if (!servoReady) {
@@ -72,14 +130,12 @@ void setup() {
     }
 
     autonomousController.begin();
-    autonomousController.startColorChallenge();
-    Serial.println("Color challenge starts automatically. B toggles manual drive; Y selects line following.");
 }
 
 void loop() {
     vTaskDelay(1);
     BP32.update();
-    lineSensor.update();
+    handleSerialInput();
     armServo.update();
 
     bool controllerConnected = false;
@@ -100,22 +156,35 @@ void loop() {
                 driveMode = driveMode == DriveMode::Autonomous
                     ? DriveMode::Manual
                     : DriveMode::Autonomous;
-                if (driveMode == DriveMode::Manual) {
-                    autonomousController.pause();
-                }
                 robotMotors.stop();
-                Serial.println(driveMode == DriveMode::Autonomous
-                    ? "Autonomous mode"
-                    : "Manual mode");
+                if (driveMode == DriveMode::Autonomous) {
+                    autonomousController.startColorChallenge();
+                    Serial.println(colorSensorReady
+                        ? "AUTOMATIC COLOR CHALLENGE selected."
+                        : "AUTOMATIC COLOR CHALLENGE selected, but the color sensor is unavailable.");
+                } else {
+                    autonomousController.pause();
+                    Serial.println("MANUAL MODE selected.");
+                }
             }
             modeButtonWasPressed[i] = modePressed;
 
             const bool linePressed = controller->y();
-            if (driveMode == DriveMode::Autonomous && linePressed &&
-                !lineButtonWasPressed[i]) {
+            if (linePressed && !lineButtonWasPressed[i]) {
+                driveMode = DriveMode::Autonomous;
+                robotMotors.stop();
                 autonomousController.startLineChallenge();
+                lastLineReportMs = 0;
             }
             lineButtonWasPressed[i] = linePressed;
+
+            const bool colorPressed = controller->x();
+            if (colorPressed && !colorButtonWasPressed[i]) {
+                driveMode = DriveMode::Autonomous;
+                robotMotors.stop();
+                autonomousController.startColorChallenge();
+            }
+            colorButtonWasPressed[i] = colorPressed;
 
             if (driveMode == DriveMode::Manual && controller->hasData()) {
                 processGamepad(controller);
@@ -124,12 +193,26 @@ void loop() {
             servoButtonWasPressed[i] = false;
             modeButtonWasPressed[i] = false;
             lineButtonWasPressed[i] = false;
+            colorButtonWasPressed[i] = false;
         }
+    }
+
+    if (driveMode == DriveMode::Autonomous &&
+        autonomousController.challenge() == AutonomousController::Challenge::Line) {
+        lineSensor.update();
     }
 
     if (driveMode == DriveMode::Autonomous) {
         autonomousController.update(colorSensorReady);
     } else if (!controllerConnected) {
         robotMotors.stop();
+    }
+
+    const uint32_t now = millis();
+    if (driveMode == DriveMode::Autonomous &&
+        autonomousController.challenge() == AutonomousController::Challenge::Line &&
+        now - lastLineReportMs >= SENSOR_REPORT_INTERVAL_MS) {
+        lastLineReportMs = now;
+        lineSensor.print();
     }
 }
