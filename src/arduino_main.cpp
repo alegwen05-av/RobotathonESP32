@@ -143,12 +143,15 @@ void loop() {
         ControllerPtr controller = myControllers[i];
         if (controller && controller->isConnected()) {
             controllerConnected = true;
+            if (!controller->hasData()) {
+                continue;
+            }
 
             const bool servoPressed = controller->a();
             if (servoReady && driveMode == DriveMode::Manual &&
                 servoPressed && !servoButtonWasPressed[i]) {
                 armServo.toggle();
-                Serial.println("Servo toggled in manual mode.");
+                Serial.printf("Servo toggled in manual mode (controller %d).\n", i);
             }
             servoButtonWasPressed[i] = servoPressed;
 
@@ -161,11 +164,12 @@ void loop() {
                 if (driveMode == DriveMode::Autonomous) {
                     autonomousController.startColorChallenge();
                     Serial.println(colorSensorReady
-                        ? "AUTOMATIC COLOR CHALLENGE selected."
-                        : "AUTOMATIC COLOR CHALLENGE selected, but the color sensor is unavailable.");
+                        ? "AUTOMATIC COLOR CHALLENGE selected by mode button."
+                        : "AUTOMATIC COLOR CHALLENGE selected by mode button, but the color sensor is unavailable.");
+                    Serial.printf("Mode button press came from controller %d.\n", i);
                 } else {
                     autonomousController.pause();
-                    Serial.println("MANUAL MODE selected.");
+                    Serial.printf("MANUAL MODE selected by controller %d.\n", i);
                 }
             }
             modeButtonWasPressed[i] = modePressed;
@@ -175,6 +179,7 @@ void loop() {
                 driveMode = DriveMode::Autonomous;
                 robotMotors.stop();
                 autonomousController.startLineChallenge();
+                Serial.printf("LINE CHALLENGE selected by controller %d.\n", i);
                 lastLineReportMs = 0;
             }
             lineButtonWasPressed[i] = linePressed;
@@ -184,10 +189,11 @@ void loop() {
                 driveMode = DriveMode::Autonomous;
                 robotMotors.stop();
                 autonomousController.startColorChallenge();
+                Serial.printf("COLOR CHALLENGE selected by controller %d.\n", i);
             }
             colorButtonWasPressed[i] = colorPressed;
 
-            if (driveMode == DriveMode::Manual && controller->hasData()) {
+            if (driveMode == DriveMode::Manual) {
                 processGamepad(controller);
             }
         } else {
