@@ -136,7 +136,6 @@ void loop() {
     vTaskDelay(1);
     BP32.update();
     handleSerialInput();
-    armServo.update();
 
     bool controllerConnected = false;
 
@@ -146,8 +145,10 @@ void loop() {
             controllerConnected = true;
 
             const bool servoPressed = controller->a();
-            if (servoReady && servoPressed && !servoButtonWasPressed[i]) {
+            if (servoReady && driveMode == DriveMode::Manual &&
+                servoPressed && !servoButtonWasPressed[i]) {
                 armServo.toggle();
+                Serial.println("Servo toggled in manual mode.");
             }
             servoButtonWasPressed[i] = servoPressed;
 
