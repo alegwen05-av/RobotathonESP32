@@ -4,13 +4,13 @@
 namespace {
 
 // Sensor order must match the physical left-to-right placement on the robot.
-const uint8_t SENSOR_PINS[LineSensor::Count] = {32, 34, 33};
+const uint8_t SENSOR_PINS[LineSensor::Count] = {32, 33, 34};
+constexpr uint8_t STATUS_LED_PIN = 2;
 
 constexpr uint32_t CALIBRATION_TIME_MS = 8000;
+constexpr uint32_t CALIBRATION_FLASH_MS = 150;
 constexpr uint32_t SAMPLE_INTERVAL_MS = 10;
 constexpr uint32_t MAX_DERIVATIVE_GAP_MS = 100;
-
-constexpr uint8_t MIDDLE_SENSOR_INDEX = 1;
 
 // Each sensor must see enough difference between the line and the floor.
 constexpr uint16_t MINIMUM_CALIBRATION_SPAN = 80;
@@ -37,6 +37,8 @@ constexpr int RECOVERY_CORRECTION = 85;
 void LineSensor::begin() {
     analogReadResolution(12);
     analogSetAttenuation(ADC_11db);
+    pinMode(STATUS_LED_PIN, OUTPUT);
+    digitalWrite(STATUS_LED_PIN, LOW);
 
     for (uint8_t pin : SENSOR_PINS) {
         pinMode(pin, INPUT);
@@ -107,10 +109,14 @@ void LineSensor::update() {
         }
 
         calibrating_ = false;
-        ready_ = true;
+        ready_ = false;
 
         for (uint8_t i = 0; i < Count; ++i) {
             const uint16_t span = maximum_[i] - minimum_[i];
+            if (span >= MINIMUM_CALIBRATION_SPAN) {
+                ready_ = true;
+            }
+
             Serial.printf(
                 "Line sensor %u: min=%u max=%u span=%u\n",
                 i,
@@ -118,21 +124,19 @@ void LineSensor::update() {
                 maximum_[i],
                 span
             );
-
-            if (
-                i != MIDDLE_SENSOR_INDEX &&
-                span < MINIMUM_CALIBRATION_SPAN
-            ) {
-                ready_ = false;
-            }
         }
 
         Serial.println(
             ready_
-                ? "Line calibration ready. Middle sensor does not affect calibration."
-                : "Line calibration FAILED. Sweep every sensor over white "
-                  "and black, then send c to retry."
+                ? "Line calibration ready. At least one sensor is usable."
+                : "Line calibration FAILED. Sweep at least one sensor over "
+                  "white and black, then send c to retry."
         );
+        if (ready_) {
+            digitalWrite(STATUS_LED_PIN, HIGH);
+            delay(CALIBRATION_FLASH_MS);
+            digitalWrite(STATUS_LED_PIN, LOW);
+        }
         return;
     }
 

@@ -115,7 +115,6 @@ void setup() {
     colorSensorReady = colorSensor.begin();
 
     BP32.setup(&onConnectedController, &onDisconnectedController);
-    BP32.forgetBluetoothKeys();
     esp_log_level_set("gpio", ESP_LOG_ERROR);
     uni_bt_allowlist_set_enabled(false);
 
