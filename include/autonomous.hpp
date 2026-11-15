@@ -38,6 +38,11 @@ private:
         Finished
     };
 
+    enum class ColorMotionPhase {
+        Move,
+        Scan
+    };
+
     void updateColor();
     void updateLine();
 
@@ -47,6 +52,7 @@ private:
 
     Challenge challenge_ = Challenge::None;
     ColorState colorState_ = ColorState::CaptureStart;
+    ColorMotionPhase colorMotionPhase_ = ColorMotionPhase::Scan;
 
     float startRed_ = 0.0f;
     float startGreen_ = 0.0f;
@@ -59,4 +65,5 @@ private:
     uint32_t lastColorMs_ = 0;
     uint32_t lastColorReportMs_ = 0;
     uint32_t lastMessageMs_ = 0;
+    uint32_t colorMotionPhaseStartMs_ = 0;
 };

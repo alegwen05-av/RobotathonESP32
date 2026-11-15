@@ -4,9 +4,11 @@
 #include "motors.hpp"
 
 namespace {
-constexpr int COLOR_SPEED = 180;
+constexpr int COLOR_SPEED = 100;
 constexpr int LINE_SPEED = 180;
 constexpr uint32_t COLOR_INTERVAL_MS = 100;
+constexpr uint32_t COLOR_MOVE_DURATION_MS = 500;
+constexpr uint32_t COLOR_SCAN_PAUSE_MS = 500;
 constexpr uint32_t COLOR_REPORT_INTERVAL_MS = 250;
 constexpr uint32_t MESSAGE_INTERVAL_MS = 1000;
 constexpr uint8_t CONFIRMATION_READS = 2;
@@ -42,10 +44,12 @@ void AutonomousController::begin() {
     motors_.stop();
     challenge_ = Challenge::None;
     colorState_ = ColorState::CaptureStart;
+    colorMotionPhase_ = ColorMotionPhase::Scan;
     confirmationCount_ = 0;
     startBrightness_ = 0.0f;
     startDetectedColor_ = DetectedColor::None;
     lastColorMs_ = millis();
+    colorMotionPhaseStartMs_ = lastColorMs_;
     lastColorReportMs_ = lastColorMs_;
     lastMessageMs_ = millis();
     lineSensor_.resetSteering();
@@ -56,10 +60,12 @@ void AutonomousController::startColorChallenge() {
     lineSensor_.resetSteering();
     challenge_ = Challenge::Color;
     colorState_ = ColorState::CaptureStart;
+    colorMotionPhase_ = ColorMotionPhase::Scan;
     confirmationCount_ = 0;
     startBrightness_ = 0.0f;
     startDetectedColor_ = DetectedColor::None;
     lastColorMs_ = millis();
+    colorMotionPhaseStartMs_ = lastColorMs_;
     lastColorReportMs_ = lastColorMs_;
     lastMessageMs_ = millis();
     Serial.println("COLOR SELECTED: capturing the starting tile.");
@@ -78,6 +84,8 @@ void AutonomousController::pause() {
     lineSensor_.resetSteering();
     confirmationCount_ = 0;
     lastColorMs_ = millis();
+    colorMotionPhase_ = ColorMotionPhase::Scan;
+    colorMotionPhaseStartMs_ = lastColorMs_;
 }
 
 void AutonomousController::update(bool colorSensorReady) {
@@ -110,6 +118,25 @@ void AutonomousController::updateColor() {
     }
 
     const uint32_t now = millis();
+    if (colorState_ != ColorState::CaptureStart) {
+        if (colorMotionPhase_ == ColorMotionPhase::Move) {
+            if (now - colorMotionPhaseStartMs_ < COLOR_MOVE_DURATION_MS) {
+                motors_.forward(COLOR_SPEED);
+                return;
+            }
+
+            colorMotionPhase_ = ColorMotionPhase::Scan;
+            colorMotionPhaseStartMs_ = now;
+            lastColorMs_ = now;
+        } else if (now - colorMotionPhaseStartMs_ >= COLOR_SCAN_PAUSE_MS) {
+            colorMotionPhase_ = ColorMotionPhase::Move;
+            colorMotionPhaseStartMs_ = now;
+            lastColorMs_ = now;
+            motors_.forward(COLOR_SPEED);
+            return;
+        }
+    }
+
     if (now - lastColorMs_ >= COLOR_INTERVAL_MS) {
         lastColorMs_ = now;
         ColorReading reading{};
@@ -147,6 +174,8 @@ void AutonomousController::updateColor() {
                     startBrightness_ = total;
                     startDetectedColor_ = colorSensor_.classify(reading);
                     colorState_ = ColorState::LeaveStart;
+                    colorMotionPhase_ = ColorMotionPhase::Move;
+                    colorMotionPhaseStartMs_ = now;
                     confirmationCount_ = 0;
                     Serial.printf(
                         "START SAVED: R=%d G=%d B=%d class=%s. Moving to find a different color.\n",
@@ -246,8 +275,8 @@ void AutonomousController::updateColor() {
         }
     }
 
-    if (colorState_ == ColorState::LeaveStart ||
-        colorState_ == ColorState::FindStartAgain) {
+    if (colorState_ != ColorState::CaptureStart &&
+        colorMotionPhase_ == ColorMotionPhase::Move) {
         motors_.forward(COLOR_SPEED);
     } else {
         motors_.stop();

@@ -1,16 +1,17 @@
 #ifndef SERVO_HPP
 #define SERVO_HPP
 
+#include <stdint.h>
 #include <ESP32Servo.h>
 
 class ServoController {
   public:
     bool begin(int pin);
-    void toggle();
+    void advancePosition();
 
   private:
     Servo servo_;
-    bool atEndPosition_ = false;
+    uint8_t positionIndex_ = 0;
 };
 
 #endif

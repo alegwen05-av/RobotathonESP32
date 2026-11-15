@@ -149,8 +149,8 @@ void loop() {
             const bool servoPressed = controller->a();
             if (servoReady && driveMode == DriveMode::Manual &&
                 servoPressed && !servoButtonWasPressed[i]) {
-                armServo.toggle();
-                Serial.printf("Servo toggled in manual mode (controller %d).\n", i);
+                armServo.advancePosition();
+                Serial.printf("Servo advanced in manual mode (controller %d).\n", i);
             }
             servoButtonWasPressed[i] = servoPressed;
 
